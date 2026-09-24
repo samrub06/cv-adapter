@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CV Adapter
 
-## Getting Started
+Outil local pour **adapter un CV maître à une offre**, générer un **PDF ATS une page**, et envoyer un **premier mail Talent Acquisition** via Brevo.
 
-First, run the development server:
+Le CV source reste la vérité : l’adaptation ne doit pas inventer d’expériences, diplômes ou skills.
+
+## Prérequis
+
+- Node.js 20+
+- Un compte [Google AI Studio](https://aistudio.google.com/apikey) (Gemini)
+- Optionnel : un compte [Brevo](https://www.brevo.com/) pour l’envoi d’emails (expéditeur vérifié)
+
+## Installation
+
+```bash
+git clone https://github.com/<ton-compte>/cv-adapter.git
+cd cv-adapter
+npm install
+cp .env.example .env.local
+```
+
+Édite `.env.local` (jamais commité) :
+
+```bash
+GOOGLE_API_KEY=ta_cle_gemini
+GEMINI_MODEL=gemini-3.6-flash
+
+# Optionnel — mails TA
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=expediteur-verifie@ton-domaine
+BREVO_SENDER_NAME=Samuel Charbit
+```
+
+Lance l’app :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+La base SQLite est créée toute seule dans `data/cv-adapter.db` (ignorée par git).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Procédure d’usage
 
-## Learn More
+### 1. CV maître
 
-To learn more about Next.js, take a look at the following resources:
+1. Va sur **CV maître**.
+2. Colle ton CV en markdown (sections `## Summary`, `## Technical Skills`, `## Experience`, `## Projects`, `## Education`, `## Languages`).
+3. Enregistre. Le parse JSON en bas doit montrer tes expériences et skills.
+4. **Télécharger le PDF ATS** pour vérifier le template (Carlito, une page, skills en `- Frontend : …`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Format d’une expérience :
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```markdown
+### Entreprise (détail)
+Role | Ville, Pays
+Jan 2024 – Present
+- Bullet concret
+```
 
-## Deploy on Vercel
+### 2. Ajouter une offre
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Sur **Offres** :
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **URL** si la page est publiquement scrapable, ou
+- **Coller le texte** (chemin nominal pour LinkedIn, souvent bloqué).
+
+Gemini extrait titre, entreprise, lieu, exigences, mots-clés. Corrige-les sur la fiche offre si besoin.
+
+### 3. Adapter le CV
+
+1. **Adapter le CV** : Gemini réécrit summary / bullets / ordre des skills pour l’offre, sans inventer.
+2. **Preview CV** : diff vs maître.
+3. **Télécharger le PDF** : même template ATS, une page remplie.
+
+Relance l’adaptation si tu changes le prompt / le maître.
+
+### 4. Premier mail Talent Acquisition (Brevo)
+
+Sur la fiche offre, en bas :
+
+1. Renseigne **nom + email** du recruteur.
+2. **Générer le meilleur premier mail** : Gemini cherche une news / un produit public sur l’entreprise, puis rédige un premier contact court (80–130 mots, pas de PJ).
+3. Relis le hook (source + confiance). Si la news est faible, le mail n’invente rien.
+4. Édite sujet / corps, puis **Envoyer via Brevo**.
+
+Sans `BREVO_API_KEY` / `BREVO_SENDER_EMAIL`, la génération marche, l’envoi est désactivé. L’adresse d’expéditeur doit être **vérifiée** dans Brevo (Senders).
+
+## Stack
+
+- Next.js App Router, SQLite (`better-sqlite3` + Drizzle)
+- Gemini (`@google/genai`) pour extraction, adaptation, recherche + brouillon mail
+- `@react-pdf/renderer` + polices Carlito (OFL)
+- Brevo Transactional API (`POST /v3/smtp/email`)
+
+## Sécurité
+
+- Ne committe jamais `.env.local` ni `data/`.
+- Le fetch d’URL d’offre refuse les hôtes privés (SSRF).
+- L’outreach est **un mail à la fois**, pas un envoi de masse.
+
+## Scripts
+
+```bash
+npm run dev    # développement
+npm run build  # build production
+npm run start  # servir le build
+npm run lint
+```
