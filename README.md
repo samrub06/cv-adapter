@@ -13,7 +13,7 @@ Le CV source reste la vérité : l’adaptation ne doit pas inventer d’expéri
 ## Installation
 
 ```bash
-git clone https://github.com/<ton-compte>/cv-adapter.git
+git clone https://github.com/samrub06/cv-adapter.git
 cd cv-adapter
 npm install
 cp .env.example .env.local
